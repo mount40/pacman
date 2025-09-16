@@ -2,6 +2,7 @@
 #include <functional>
 #include <cmath>
 
+// NOTE: Refactor to naming convention, check copy move semantics
 enum class TimerMode { OneShot, Repeating };
 
 class Timer {

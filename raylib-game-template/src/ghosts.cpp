@@ -2,6 +2,7 @@
 #include <cmath>
 #include <array>
 #include <algorithm>
+#include "raylib.h"
 
 static constexpr int prio(MOVEMENT_DIR d) {
     switch (d) {
@@ -13,31 +14,47 @@ static constexpr int prio(MOVEMENT_DIR d) {
     }
 }
 
-// NOTE: rename blinky to ghost
-static void move_to_tile(TileMap& tile_map, Entity* blinky,
-                         const Vector2& target_tile_pos, float dt) {
-  MOVEMENT_DIR forbidden_dir = MOVEMENT_DIR::STOPPED;
-  switch(blinky->dir) {
-  case(MOVEMENT_DIR::UP): {
-    forbidden_dir = MOVEMENT_DIR::DOWN;
-  } break;
-  case(MOVEMENT_DIR::DOWN): {
-    forbidden_dir = MOVEMENT_DIR::UP;
-  } break;
-  case(MOVEMENT_DIR::LEFT): {
-    forbidden_dir = MOVEMENT_DIR::RIGHT;
-  } break;
-  case(MOVEMENT_DIR::RIGHT): {
-    forbidden_dir = MOVEMENT_DIR::LEFT;
-  } break;
-  default: { // we default to right movement
-    forbidden_dir = MOVEMENT_DIR::LEFT;    
-  } break;
+// NOTE: rename "blinky" to "ghost"
+static void move_to_tile(TileMap& tile_map,
+                         Entity* blinky, const Vector2& target_tile_pos,
+                         MOVEMENT_DIR forbidden_dir, float dt) {
+  if (forbidden_dir == MOVEMENT_DIR::STOPPED) {    
+    switch(blinky->dir) {
+    case(MOVEMENT_DIR::UP): {
+      forbidden_dir = MOVEMENT_DIR::DOWN;
+    } break;
+    case(MOVEMENT_DIR::DOWN): {
+      forbidden_dir = MOVEMENT_DIR::UP;
+    } break;
+    case(MOVEMENT_DIR::LEFT): {
+      forbidden_dir = MOVEMENT_DIR::RIGHT;
+    } break;
+    case(MOVEMENT_DIR::RIGHT): {
+      forbidden_dir = MOVEMENT_DIR::LEFT;
+    } break;
+    default: { // we default to right movement
+      forbidden_dir = MOVEMENT_DIR::LEFT;    
+    } break;
+    }
   }
 
   float& blinky_x = blinky->tile_pos.x;
   float& blinky_y = blinky->tile_pos.y;
-
+  TILE_TYPE current_tile = tile_map.get(blinky_x, blinky_y);
+  
+  // NOTE: abstract into a function, used by both ghosts and player
+  if (current_tile == TILE_TYPE::TELEPORT) {
+    if (blinky_x == 0.0f) {
+      // leftmost tile, send to rightmost tile
+      blinky_x = tile_map.cols - 2.0f;
+      blinky->prev_tile_pos.x = blinky_x;
+    } else if (blinky_x == static_cast<float>(tile_map.cols) - 1.0f) {
+      // rightmost tile, send to leftmost tile
+      blinky_x = 1.0f;
+      blinky->prev_tile_pos.x = blinky_x;
+    }
+  }
+  
   // NOTE: optimize this, we already know forbidden_dir, use it to drop 1 tile computation
   TILE_TYPE left_tile = tile_map.get(blinky_x - 1.0f, blinky_y);
   TILE_TYPE right_tile = tile_map.get(blinky_x + 1.0f, blinky_y);
@@ -56,8 +73,9 @@ static void move_to_tile(TileMap& tile_map, Entity* blinky,
   float down_dist  = Vector2DistanceSqr(down_tile_pos, target_tile_pos);
 
   bool can_go_up    = up_tile != TILE_TYPE::WALL;
-  // the door to the monster pen can be accessed only from top going down, and Blinky can enter the monster pen only when in EATEN state
-  bool can_go_down  = down_tile != TILE_TYPE::WALL && down_tile != TILE_TYPE::DOOR;
+  // the door to the monster pen can be accessed only from top going down, and Blinky can enter the monster pen only when in dead
+  bool can_go_down  = down_tile != TILE_TYPE::WALL &&
+    (down_tile != TILE_TYPE::DOOR || blinky->is_dead);
   bool can_go_left  = left_tile != TILE_TYPE::WALL;
   bool can_go_right = right_tile != TILE_TYPE::WALL;
 
@@ -113,7 +131,12 @@ static void move_to_tile(TileMap& tile_map, Entity* blinky,
   }
 }
 
-void update_ghosts_phase(GhostPhase* curr_phase, float dt) {
+void update_ghosts_phase(GhostPhase* curr_phase, bool is_player_energized, float dt) {
+  if (is_player_energized) {
+    curr_phase->state = GHOST_STATE::FRIGHTENED;
+    return;
+  }
+  
   if (curr_phase->state == GHOST_STATE::NONE) {
     curr_phase->state = GHOST_STATE::SCATTER;
     curr_phase->timer.set_duration(7.0);
@@ -122,14 +145,19 @@ void update_ghosts_phase(GhostPhase* curr_phase, float dt) {
 
   // After the 4th scatter -> ghosts chase indefinetely
   // NOTE: stop the clock running maybe
-  if (curr_phase->state == GHOST_STATE::CHASE &&
+  if ((curr_phase->state == GHOST_STATE::CHASE ||
+       curr_phase->state == GHOST_STATE::FRIGHTENED) &&
       curr_phase->num_scatter_to_chase_trans > 4) {
-    curr_phase->timer.stop();
+    // stop the watch if running
+    if (curr_phase->timer.running()) {
+      curr_phase->timer.stop();
+    }
     return;
   }
 
   // We're in scatter and the timer has run out
-  if (curr_phase->state == GHOST_STATE::SCATTER &&
+  if ((curr_phase->state == GHOST_STATE::SCATTER ||
+       curr_phase->state == GHOST_STATE::FRIGHTENED) &&
       !curr_phase->timer.running()) {
     curr_phase->state = GHOST_STATE::CHASE;
     curr_phase->timer.set_duration(20.0);
@@ -139,7 +167,8 @@ void update_ghosts_phase(GhostPhase* curr_phase, float dt) {
   
 
   // We're in chase and the timer has run out
-  if (curr_phase->state == GHOST_STATE::CHASE &&
+  if ((curr_phase->state == GHOST_STATE::CHASE ||
+       curr_phase->state == GHOST_STATE::FRIGHTENED) &&
       !curr_phase->timer.running()) {
     curr_phase->state = GHOST_STATE::SCATTER;
 
@@ -167,10 +196,46 @@ void update_blinky(TileMap& tile_map, Entity* blinky, GHOST_STATE curr_state, co
   }
 
   Vector2 target_tile_pos = {};
-  if (curr_state == GHOST_STATE::SCATTER)
+  MOVEMENT_DIR forbidden_dir = MOVEMENT_DIR::STOPPED;
+  if (curr_state == GHOST_STATE::SCATTER) {
     target_tile_pos = Vector2{ static_cast<float>(tile_map.cols) - 2.0f, 0.0f };
-  else if (curr_state == GHOST_STATE::CHASE)
+  } else if (curr_state == GHOST_STATE::CHASE) {
     target_tile_pos = Vector2{ player.tile_pos.x, player.tile_pos.y };
+  } else if (curr_state == GHOST_STATE::FRIGHTENED) {
+    // when frightened ghosts turn around 180 degrees and run to a random tile
+    target_tile_pos = Vector2{
+      static_cast<float>(GetRandomValue(0, tile_map.cols - 1)),
+      static_cast<float>(GetRandomValue(0, tile_map.rows - 1))
+    };
 
-  move_to_tile(tile_map, blinky, target_tile_pos, dt);
+    forbidden_dir = blinky->dir;
+    switch(blinky->dir) {
+    case (MOVEMENT_DIR::UP): {
+      blinky->dir = MOVEMENT_DIR::DOWN;
+    } break;
+    case (MOVEMENT_DIR::DOWN): {
+      blinky->dir = MOVEMENT_DIR::UP;
+    } break;
+    case (MOVEMENT_DIR::RIGHT): {
+      blinky->dir = MOVEMENT_DIR::LEFT;
+    } break;
+    case (MOVEMENT_DIR::LEFT): {
+      blinky->dir = MOVEMENT_DIR::RIGHT;
+    } break;
+    default: {
+    } break;
+    }
+  }
+
+  // Being dead overrides all other states
+  if (blinky->is_dead) {
+    // NOTE: don't hardcode this position bellow
+    target_tile_pos = Vector2{ 13.0f, 17.0f };
+    // Blinky is inside the monster pen, ressurects are in order
+    if (Vector2Equals(blinky->tile_pos, target_tile_pos)) {
+      blinky->is_dead = false;
+    } 
+  }
+ 
+  move_to_tile(tile_map, blinky, target_tile_pos, forbidden_dir, dt);
 }

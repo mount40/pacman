@@ -1,5 +1,7 @@
 #include "player.h"
+
 #include <cmath>
+#include "timer.h"
 
 void init_player(Entity* player, const Vector2& tile_pos) {
   player->tile_pos = tile_pos;
@@ -7,7 +9,7 @@ void init_player(Entity* player, const Vector2& tile_pos) {
 
   player->dir = MOVEMENT_DIR::STOPPED;
   player->move_timer = 0.0f;
-  player->tile_step_time = 0.1f; // movement speed of 10 tiles/sec
+  player->tile_step_time = 0.15f; // NOTE: 15 is good, movement speed of 15 tiles/sec
 
   // NOTE: Set to "resources/pacman_texture.png"
   player->texture = LoadTexture("D:/Projects/modern-pacman/raylib-game-template/src/resources/pacman_texture.png");
@@ -27,9 +29,12 @@ void init_player(Entity* player, const Vector2& tile_pos) {
 
   // We assume 8 frames per sprite sheet, always
   player->anim_ctx.frames_speed = 8;
+
+  player->is_energized = false;
+  player->energized_timer = Timer();
 }
 
-void update_player(TileMap& tile_map, Entity* player, std::uint32_t* collected_dots, float dt) {
+void update_player(TileMap& tile_map, Entity* player, float dt) {
   float& player_x = player->tile_pos.x;
   float& player_y = player->tile_pos.y;
 
@@ -37,7 +42,23 @@ void update_player(TileMap& tile_map, Entity* player, std::uint32_t* collected_d
 
   if (current_tile == TILE_TYPE::DOT) {
     tile_map.set(player_x, player_y, TILE_TYPE::EMPTY);
-    (*collected_dots) += 1;
+    // NOTE: In the original pacman dots are worth 10 points
+    player->collected_dots += 1;
+  }
+
+  if (current_tile == TILE_TYPE::PILL) {
+    tile_map.set(player_x, player_y, TILE_TYPE::EMPTY);
+    // NOTE: In the original pacman energizers are worth 50 points
+    // player->collected_dots += 50;    
+    player->is_energized = true;
+    player->energized_timer.set_duration(6.0);
+    player->energized_timer.start();
+  }
+
+  if (player->energized_timer.running()) {
+    player->energized_timer.update(static_cast<double>(dt));
+  } else {
+    player->is_energized = false;
   }
 
   if (current_tile == TILE_TYPE::TELEPORT) {

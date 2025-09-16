@@ -22,15 +22,16 @@ enum class GHOST_STATE {
 
 struct GhostPhase {
   GHOST_STATE state;
+  GHOST_STATE interrupted_state;
   Timer timer;
   uint16_t num_scatter_to_chase_trans;
   uint16_t num_chase_to_scatter_trans;
 };
 
 static constexpr int prio(MOVEMENT_DIR d);
-static void move_to_tile(TileMap& tile_map, Entity* blinky,
-                         const Vector2& target_tile_pos, float dt);
-
-void update_ghosts_phase(GhostPhase* curr_phase, float dt);
+static void move_to_tile(TileMap& tile_map,
+                         Entity* blinky, const Vector2& target_tile_pos,
+                         MOVEMENT_DIR forbidden_dir, float dt);
+void update_ghosts_phase(GhostPhase* curr_phase, bool is_player_energized, float dt);
 void update_blinky(TileMap& tile_map, Entity* blinky,
                    GHOST_STATE curr_state, const Entity& player, float dt);

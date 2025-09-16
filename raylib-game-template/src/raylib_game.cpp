@@ -112,6 +112,7 @@ template<std::uint16_t Rows>
 static std::pair<std::unique_ptr<TileMap>, std::unique_ptr<Entities>>
 parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size);
 
+static void check_and_resolve_entity_collisions(Entities* entities);
 static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities);
 
 int main(void) {
@@ -174,16 +175,16 @@ int main(void) {
 
   GhostPhase ghosts_phase = {
     GHOST_STATE::NONE,
+    GHOST_STATE::NONE,
     Timer(),
     0,
     0
   };
-    
-  std::uint32_t collected_dots = 0;
-  
+
   // detects window close button or ESC key
   while (!WindowShouldClose()) {
-    if (collected_dots >= tile_map.dots) {
+    // Win condition
+    if (entities.player.collected_dots >= tile_map.dots) {
       BeginDrawing();
       ClearBackground(RAYWHITE);
       const char *msg = "YOU WON!";
@@ -193,14 +194,37 @@ int main(void) {
       int textHeight = fontSize;
 
       DrawMapAndEntities(tile_map, &entities);
-      DrawText(TextFormat("SCORE: %i", collected_dots), 10, 10, 20, MAROON);
+      DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
+               10, 10, 20, MAROON);
       DrawText(msg, screen_width / 2 - textWidth / 2,
                screen_height / 2 - textHeight / 2, fontSize, BLACK);
 
       EndDrawing();
       continue;
     }
- 
+
+    // Loose condition
+    if (entities.player.is_dead) {
+      BeginDrawing();
+      ClearBackground(RAYWHITE);
+      const char *msg = "YOU LOST!";
+      int fontSize = 60;
+
+      int textWidth = MeasureText(msg, fontSize);
+      int textHeight = fontSize;
+
+      DrawMapAndEntities(tile_map, &entities);
+      DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
+               10, 10, 20, MAROON);
+      DrawText(msg, screen_width / 2 - textWidth / 2,
+               screen_height / 2 - textHeight / 2, fontSize, BLACK);
+
+      EndDrawing();
+      continue;
+    }
+    
+
+    // Gameplay loop
     const float dt = GetFrameTime();
     
     if (IsKeyPressed(KEY_UP)) {
@@ -219,10 +243,15 @@ int main(void) {
       entities.player.next_dir = MOVEMENT_DIR::LEFT;
     }
 
-    update_player(tile_map, &entities.player, &collected_dots, dt);
-    update_ghosts_phase(&ghosts_phase, dt);
-    update_blinky(tile_map, &entities.blinky, ghosts_phase.state, entities.player, dt);
+    // Checks and resolves previous frames collisions. Doing it here
+    // prevents visual artifacts on collisions, due to the interpolation
+    // that's happening after an entity moves on the tile map.
+    check_and_resolve_entity_collisions(&entities);
 
+    update_player(tile_map, &entities.player, dt);
+    update_ghosts_phase(&ghosts_phase, entities.player.is_energized, dt);
+    update_blinky(tile_map, &entities.blinky, ghosts_phase.state, entities.player, dt);
+    
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
@@ -230,7 +259,8 @@ int main(void) {
     DrawMapAndEntities(tile_map, &entities);
 
     DrawFPS(940, 10);
-    DrawText(TextFormat("SCORE: %i", collected_dots), 10, 10, 20, MAROON);
+    DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
+             10, 10, 20, MAROON);
     
     EndDrawing();
   }
@@ -320,6 +350,25 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
   }
 
   return { std::move(map), std::move(entities) };
+}
+
+static void check_and_resolve_entity_collisions(Entities* entities) {
+  Entity* player = &entities->player;
+  Entity* ghosts[] = { &entities->blinky, &entities->pinky,
+                       &entities->inky, &entities->clyde };
+
+  for (Entity* ghost : ghosts) {
+    if (ghost->is_dead) continue;
+
+    if (are_on_same_tile(*player, *ghost)) {
+      if (player->is_energized) {
+        ghost->is_dead = true;
+      } else {
+        player->is_dead = true;
+        return;
+      }
+    }
+  }
 }
 
 static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities) {

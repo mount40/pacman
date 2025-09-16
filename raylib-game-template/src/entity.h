@@ -1,19 +1,21 @@
 #pragma once
+#include <cstdint>
 #include "raylib.h"
+#include "timer.h"
 
 enum MOVEMENT_DIR {
   STOPPED = 0,
   UP,
   DOWN,
   RIGHT,
-  LEFT,
+  LEFT
 };
 
 struct EntityAnimationContext {
   Rectangle frame_rec;
-  int current_frame;
-  int frames_counter;
-  int frames_speed;
+  std::uint32_t current_frame;
+  std::uint32_t frames_counter;
+  std::uint32_t frames_speed;
 };
 
 // Fat entity struct
@@ -28,4 +30,12 @@ struct Entity {
   Vector2 scale;
   float rotation;
   EntityAnimationContext anim_ctx;
+  std::uint16_t collected_dots;
+  bool is_energized;
+  Timer energized_timer;
+  bool is_dead;
 };
+
+inline bool are_on_same_tile(const Entity& a, const Entity& b) {
+    return a.tile_pos.x == b.tile_pos.x && a.tile_pos.y == b.tile_pos.y;
+}
