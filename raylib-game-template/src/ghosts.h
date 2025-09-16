@@ -2,6 +2,7 @@
 #include <cmath>
 #include <limits>
 #include "tile_map.h"
+#include "movement_dir.h"
 #include "entity.h"
 #include "raymath.h"
 #include "timer.h"
@@ -20,18 +21,27 @@ enum class GHOST_STATE {
   EATEN,
 };
 
-struct GhostPhase {
-  GHOST_STATE state;
-  GHOST_STATE interrupted_state;
-  Timer timer;
-  uint16_t num_scatter_to_chase_trans;
-  uint16_t num_chase_to_scatter_trans;
+enum class GHOST_TYPE {
+  NONE = 0,
+  BLINKY,
+  PINKY,
+  INKY,
+  CLYDE,
 };
 
-static constexpr int prio(MOVEMENT_DIR d);
-static void move_to_tile(TileMap& tile_map,
-                         Entity* blinky, const Vector2& target_tile_pos,
-                         MOVEMENT_DIR forbidden_dir, float dt);
-void update_ghosts_phase(GhostPhase* curr_phase, bool is_player_energized, float dt);
-void update_blinky(TileMap& tile_map, Entity* blinky,
-                   GHOST_STATE curr_state, const Entity& player, float dt);
+struct GhostPhase {
+  GHOST_STATE state{GHOST_STATE::NONE};     // SCATTER/CHASE/FRIGHTENED/NONE
+  Timer main_timer;                         // for SCATTER/CHASE
+  Timer frightened_timer;                   // overlay timer
+  int cycle_idx{0};                         // 0..3 for the first 4 cycles
+  double paused_remaining{0.0};             // remaining main time while frightened
+  GHOST_STATE prev_state{GHOST_STATE::NONE};
+  std::uint16_t change_seq{0}; 
+};
+
+void update_ghosts_phase(GhostPhase* phase, bool is_player_energized, float dt);
+void update_ghost(TileMap& tile_map, Entity* entity, GHOST_TYPE ghost,
+                  const GhostPhase& phase, const Entity& player, float dt,
+                  const Vector2 blinky_tile_pos, const Vector2 clyde_tile_pos);
+/* void update_blinky(TileMap& tile_map, Entity* blinky, */
+/*                    const GhostPhase& phase, const Entity& player, float dt); */

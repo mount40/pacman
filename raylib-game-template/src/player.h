@@ -2,6 +2,7 @@
 #include <cstdint>
 #include "raylib.h"
 #include "tile_map.h"
+#include "movement_dir.h"
 #include "entity.h"
 #include "raymath.h"
 

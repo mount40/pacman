@@ -8,6 +8,7 @@
 
 #include "raylib.h"
 #include "timer.h"
+#include "movement_dir.h"
 #include "entity.h"
 #include "tile_map.h"
 #include "player.h"
@@ -21,33 +22,38 @@ struct Entities {
   Entity clyde;
 };
 
-static void
-init_ghost(Entity* player, const Vector2& tile_pos, const char* texture_path) {
-  player->tile_pos = tile_pos;
-  player->prev_tile_pos = tile_pos;
-  player->dir = MOVEMENT_DIR::STOPPED;
-  player->move_timer = 0.0f;
-  player->tile_step_time = 0.2f; // movement speed of 5 tiles/sec
+// static void
+// init_ghost(Entity* player, const Vector2& tile_pos, const char* texture_path, float tile_step_time) {
+//   player->tile_pos = tile_pos;
+//   player->prev_tile_pos = tile_pos;
+//   player->dir = MOVEMENT_DIR::STOPPED;
+//   player->move_timer = 0.0f;
+//   player->tile_step_time = tile_step_time; // 0.2f; // movement speed of 5 tiles/sec
 
-  // NOTE: Set to "resources/pacman_texture.png"
-  player->texture = LoadTexture(texture_path);
-  player->scale = Vector2{ 1.5f, 1.5f };
-  player->rotation = 0.0f;
+//   // NOTE: Set to "resources/pacman_texture.png"
+//   player->texture = LoadTexture(texture_path);
+//   player->scale = Vector2{ 1.5f, 1.5f };
+//   player->rotation = 0.0f;
 
-  // setup animation context
-  player->anim_ctx = {};
-  player->anim_ctx.frame_rec = {
-    0.0f,
-    0.0f,
-    static_cast<float>(player->texture.width / 8),
-    static_cast<float>(player->texture.height)
-  };
-  player->anim_ctx.current_frame = 0;
-  player->anim_ctx.frames_counter = 0;
+//   // setup animation context
+//   player->anim_ctx = {};
+//   player->anim_ctx.frame_rec = {
+//     0.0f,
+//     0.0f,
+//     static_cast<float>(player->texture.width / 8),
+//     static_cast<float>(player->texture.height)
+//   };
+//   player->anim_ctx.current_frame = 0;
+//   player->anim_ctx.frames_counter = 0;
 
-  // We assume 8 frames per sprite sheet, always
-  player->anim_ctx.frames_speed = 8;
-}
+//   // We assume 8 frames per sprite sheet, always
+//   player->anim_ctx.frames_speed = 8;
+
+//   player->is_energized = false;
+//   player->energized_timer = Timer();
+//   player->is_dead = false;
+//   player->in_monster_pen = true;
+// }
 
 static void
 render_ghost(const TileMap& tile_map, Entity* player) {
@@ -173,13 +179,7 @@ int main(void) {
   TileMap& tile_map = *tile_map_ptr;
   Entities& entities = *entities_ptr;
 
-  GhostPhase ghosts_phase = {
-    GHOST_STATE::NONE,
-    GHOST_STATE::NONE,
-    Timer(),
-    0,
-    0
-  };
+  GhostPhase ghosts_phase = {};
 
   // detects window close button or ESC key
   while (!WindowShouldClose()) {
@@ -250,7 +250,22 @@ int main(void) {
 
     update_player(tile_map, &entities.player, dt);
     update_ghosts_phase(&ghosts_phase, entities.player.is_energized, dt);
-    update_blinky(tile_map, &entities.blinky, ghosts_phase.state, entities.player, dt);
+
+    update_ghost(tile_map, &entities.blinky, GHOST_TYPE::BLINKY,
+                 ghosts_phase, entities.player, dt,
+                 entities.blinky.tile_pos, entities.clyde.tile_pos);
+
+    update_ghost(tile_map, &entities.pinky, GHOST_TYPE::PINKY,
+                 ghosts_phase, entities.player, dt,
+                 entities.blinky.tile_pos, entities.clyde.tile_pos);
+
+    update_ghost(tile_map, &entities.inky, GHOST_TYPE::INKY,
+                 ghosts_phase, entities.player, dt,
+                 entities.blinky.tile_pos, entities.clyde.tile_pos);
+
+    update_ghost(tile_map, &entities.clyde, GHOST_TYPE::CLYDE,
+                 ghosts_phase, entities.player, dt,
+                 entities.blinky.tile_pos, entities.clyde.tile_pos);
     
     BeginDrawing();
 
@@ -317,29 +332,31 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
       } break;
       case 'P': {
         Vector2 tile_pos = Vector2{ static_cast<float>(col), static_cast<float>(row) };
-        init_player(&entities->player, tile_pos);
+        // init_player(&entities->player, tile_pos);
+        init_entity(&entities->player, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/pacman_texture.png", 0.15f);
         map->set(col, row, empty_tile);
       } break;
       case 'B': { // Blinky
           // NOTE: Set to "resources/pacman_texture.png"
         Vector2 tile_pos = Vector2{ static_cast<float>(col), static_cast<float>(row) };
-        init_ghost(&entities->blinky, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/blinky_spritesheet.png");
+        init_entity(&entities->blinky, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/blinky_spritesheet.png", 0.2f);
+        entities->blinky.in_monster_pen = false;
         map->set(col, row, empty_tile);
       } break;
       case 'I': { // Inky
         Vector2 tile_pos = Vector2{ static_cast<float>(col), static_cast<float>(row) };
-        init_ghost(&entities->inky, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/inky_spritesheet.png");
+        init_entity(&entities->inky, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/inky_spritesheet.png", 0.2f);
         map->set(col, row, empty_tile);
       } break;
       case 'K': {
         // Pinky (avoid P clash with Player). In our case Pinky is actually green :/
         Vector2 tile_pos = Vector2{ static_cast<float>(col), static_cast<float>(row) };
-        init_ghost(&entities->pinky, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/pinky_spritesheet.png");
+        init_entity(&entities->pinky, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/pinky_spritesheet.png", 0.2f);
         map->set(col, row, empty_tile);
       } break;
       case 'C': { // Clyde
         Vector2 tile_pos = Vector2{ static_cast<float>(col), static_cast<float>(row) };
-        init_ghost(&entities->clyde, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/clyde_spritesheet.png");
+        init_entity(&entities->clyde, tile_pos, "D:/Projects/modern-pacman/raylib-game-template/src/resources/clyde_spritesheet.png", 0.2f);
         map->set(col, row, empty_tile);
       } break;
       default: {
@@ -360,7 +377,7 @@ static void check_and_resolve_entity_collisions(Entities* entities) {
   for (Entity* ghost : ghosts) {
     if (ghost->is_dead) continue;
 
-    if (are_on_same_tile(*player, *ghost)) {
+    if (entity_collision(*player, *ghost)) {
       if (player->is_energized) {
         ghost->is_dead = true;
       } else {

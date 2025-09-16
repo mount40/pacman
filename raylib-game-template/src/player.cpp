@@ -3,37 +3,40 @@
 #include <cmath>
 #include "timer.h"
 
-void init_player(Entity* player, const Vector2& tile_pos) {
-  player->tile_pos = tile_pos;
-  player->prev_tile_pos = tile_pos;
+// void init_player(Entity* player, const Vector2& tile_pos) {
+//   player->tile_pos = tile_pos;
+//   player->prev_tile_pos = tile_pos;
 
-  player->dir = MOVEMENT_DIR::STOPPED;
-  player->move_timer = 0.0f;
-  player->tile_step_time = 0.15f; // NOTE: 15 is good, movement speed of 15 tiles/sec
+//   player->dir = MOVEMENT_DIR::STOPPED;
+//   player->move_timer = 0.0f;
+//   player->tile_step_time = 0.15f; // NOTE: 15 is good, movement speed of 15 tiles/sec
 
-  // NOTE: Set to "resources/pacman_texture.png"
-  player->texture = LoadTexture("D:/Projects/modern-pacman/raylib-game-template/src/resources/pacman_texture.png");
-  player->scale = Vector2{ 1.5f, 1.5f };
-  player->rotation = 0.0f;
+//   // NOTE: Set to "resources/pacman_texture.png"
+//   player->texture = LoadTexture("D:/Projects/modern-pacman/raylib-game-template/src/resources/pacman_texture.png");
+//   player->scale = Vector2{ 1.5f, 1.5f };
+//   player->rotation = 0.0f;
 
-  // setup animation context
-  player->anim_ctx = {};
-  player->anim_ctx.frame_rec = {
-    0.0f,
-    0.0f,
-    static_cast<float>(player->texture.width / 8),
-    static_cast<float>(player->texture.height)
-  };
-  player->anim_ctx.current_frame = 0;
-  player->anim_ctx.frames_counter = 0;
+//   // setup animation context
+//   player->anim_ctx = {};
+//   player->anim_ctx.frame_rec = {
+//     0.0f,
+//     0.0f,
+//     static_cast<float>(player->texture.width / 8),
+//     static_cast<float>(player->texture.height)
+//   };
+//   player->anim_ctx.current_frame = 0;
+//   player->anim_ctx.frames_counter = 0;
 
-  // We assume 8 frames per sprite sheet, always
-  player->anim_ctx.frames_speed = 8;
+//   // We assume 8 frames per sprite sheet, always
+//   player->anim_ctx.frames_speed = 8;
 
-  player->is_energized = false;
-  player->energized_timer = Timer();
-}
+//   player->is_energized = false;
+//   player->energized_timer = Timer();
+//   player->is_dead = false;
+//   player->in_monster_pen = true;
+// }
 
+// NOTE: cleanup!
 void update_player(TileMap& tile_map, Entity* player, float dt) {
   float& player_x = player->tile_pos.x;
   float& player_y = player->tile_pos.y;
@@ -106,7 +109,7 @@ void update_player(TileMap& tile_map, Entity* player, float dt) {
                                           should_start_moving_right ||
                                           should_start_moving_up    ||
                                           should_start_moving_down);
-
+  
   if (should_start_moving_in_next_dir) {
     player->dir = player->next_dir;
     player->next_dir = MOVEMENT_DIR::STOPPED;
@@ -119,6 +122,13 @@ void update_player(TileMap& tile_map, Entity* player, float dt) {
     // record previous tile BEFORE we step
     player->prev_tile_pos = player->tile_pos;
 
+    // Vector2 delta = get_step_delta(player->dir);
+    // player->tile_pos.x += delta.x;
+    // player->tile_pos.y += delta.y;
+    // player->rotation = get_dir_rotation(player->dir);
+    // player->scale.y = get_dir_scale_y_sign(player->dir) * std::fabsf(player->scale.y);
+
+    // NOTE: find a way to get rid of this switch with helper functions
     switch(player->dir) {
     case (MOVEMENT_DIR::UP): {
       player->tile_pos.y -= 1.0f;

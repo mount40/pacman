@@ -371,6 +371,7 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\src\entity.h" />
     <ClInclude Include="..\..\..\src\ghosts.h" />
+    <ClInclude Include="..\..\..\src\movement_dir.h" />
     <ClInclude Include="..\..\..\src\player.h" />
     <ClInclude Include="..\..\..\src\tile_map.h" />
     <ClInclude Include="..\..\..\src\timer.h" />

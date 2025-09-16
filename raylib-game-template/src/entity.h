@@ -2,14 +2,7 @@
 #include <cstdint>
 #include "raylib.h"
 #include "timer.h"
-
-enum MOVEMENT_DIR {
-  STOPPED = 0,
-  UP,
-  DOWN,
-  RIGHT,
-  LEFT
-};
+#include "movement_dir.h"
 
 struct EntityAnimationContext {
   Rectangle frame_rec;
@@ -19,6 +12,7 @@ struct EntityAnimationContext {
 };
 
 // Fat entity struct
+// NOTE: make player and ghost specific data fields into a union
 struct Entity {
   Vector2 tile_pos;
   Vector2 prev_tile_pos; 
@@ -34,8 +28,14 @@ struct Entity {
   bool is_energized;
   Timer energized_timer;
   bool is_dead;
+  bool in_monster_pen;
+  std::uint32_t last_seen_change_seq{0};
 };
 
-inline bool are_on_same_tile(const Entity& a, const Entity& b) {
-    return a.tile_pos.x == b.tile_pos.x && a.tile_pos.y == b.tile_pos.y;
+inline bool entity_collision(const Entity& a, const Entity& b) {
+  return a.tile_pos.x == b.tile_pos.x && a.tile_pos.y == b.tile_pos.y;
 }
+
+void handle_entity_on_teleport_tile(Entity* entity, std::uint16_t num_tile_map_cols);
+void init_entity(Entity* player, const Vector2& tile_pos,
+                 const char* texture_path, float tile_step_time);

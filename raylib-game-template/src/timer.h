@@ -7,7 +7,7 @@ enum class TimerMode { OneShot, Repeating };
 
 class Timer {
  public:
-  explicit Timer(double seconds = 1.0, TimerMode mode = TimerMode::OneShot)
+  Timer(double seconds = 0.0, TimerMode mode = TimerMode::OneShot)
     : m_duration(seconds), m_remaining(seconds), m_mode(mode) {}
 
   void start()  { m_running = true; m_paused = false; }
