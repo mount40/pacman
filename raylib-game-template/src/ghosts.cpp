@@ -113,13 +113,64 @@ static void move_to_tile(TileMap& tile_map, Entity* blinky,
   }
 }
 
-void update_blinky(TileMap& tile_map, Entity* blinky, const Entity& player, float dt) {
+void update_ghosts_phase(GhostPhase* curr_phase, float dt) {
+  if (curr_phase->state == GHOST_STATE::NONE) {
+    curr_phase->state = GHOST_STATE::SCATTER;
+    curr_phase->timer.set_duration(7.0);
+    curr_phase->timer.start();
+  }
+
+  // After the 4th scatter -> ghosts chase indefinetely
+  // NOTE: stop the clock running maybe
+  if (curr_phase->state == GHOST_STATE::CHASE &&
+      curr_phase->num_scatter_to_chase_trans > 4) {
+    curr_phase->timer.stop();
+    return;
+  }
+
+  // We're in scatter and the timer has run out
+  if (curr_phase->state == GHOST_STATE::SCATTER &&
+      !curr_phase->timer.running()) {
+    curr_phase->state = GHOST_STATE::CHASE;
+    curr_phase->timer.set_duration(20.0);
+    curr_phase->timer.start();
+    curr_phase->num_scatter_to_chase_trans += 1;
+  }
+  
+
+  // We're in chase and the timer has run out
+  if (curr_phase->state == GHOST_STATE::CHASE &&
+      !curr_phase->timer.running()) {
+    curr_phase->state = GHOST_STATE::SCATTER;
+
+    if (curr_phase->num_scatter_to_chase_trans > 2) {
+      curr_phase->timer.set_duration(5.0);
+    } else {
+      curr_phase->timer.set_duration(7.0);
+    }
+
+    curr_phase->timer.start();
+    curr_phase->num_chase_to_scatter_trans += 1;
+  }
+
+  // The timer is still running, advance it no matter the ghost state
+  if (curr_phase->timer.running()) {
+    curr_phase->timer.update(static_cast<double>(dt));
+    return;
+  }  
+}
+
+void update_blinky(TileMap& tile_map, Entity* blinky, GHOST_STATE curr_state, const Entity& player, float dt) {
   // Start of the game, default to right movement
   if (blinky->dir == MOVEMENT_DIR::STOPPED) {
     blinky->dir = MOVEMENT_DIR::RIGHT;
   }
 
-  // Vector2 target_tile_pos = Vector2{ player.tile_pos.x, player.tile_pos.y };
-  Vector2 target_tile_pos = Vector2{ static_cast<float>(tile_map.cols) - 2.0f, 0.0f };
+  Vector2 target_tile_pos = {};
+  if (curr_state == GHOST_STATE::SCATTER)
+    target_tile_pos = Vector2{ static_cast<float>(tile_map.cols) - 2.0f, 0.0f };
+  else if (curr_state == GHOST_STATE::CHASE)
+    target_tile_pos = Vector2{ player.tile_pos.x, player.tile_pos.y };
+
   move_to_tile(tile_map, blinky, target_tile_pos, dt);
 }

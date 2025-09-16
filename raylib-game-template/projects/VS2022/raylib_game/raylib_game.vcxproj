@@ -373,6 +373,7 @@
     <ClInclude Include="..\..\..\src\ghosts.h" />
     <ClInclude Include="..\..\..\src\player.h" />
     <ClInclude Include="..\..\..\src\tile_map.h" />
+    <ClInclude Include="..\..\..\src\timer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

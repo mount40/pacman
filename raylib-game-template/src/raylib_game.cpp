@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "raylib.h"
+#include "timer.h"
 #include "entity.h"
 #include "tile_map.h"
 #include "player.h"
@@ -171,6 +172,13 @@ int main(void) {
   TileMap& tile_map = *tile_map_ptr;
   Entities& entities = *entities_ptr;
 
+  GhostPhase ghosts_phase = {
+    GHOST_STATE::NONE,
+    Timer(),
+    0,
+    0
+  };
+    
   std::uint32_t collected_dots = 0;
   
   // detects window close button or ESC key
@@ -192,7 +200,7 @@ int main(void) {
       EndDrawing();
       continue;
     }
-    
+ 
     const float dt = GetFrameTime();
     
     if (IsKeyPressed(KEY_UP)) {
@@ -212,7 +220,8 @@ int main(void) {
     }
 
     update_player(tile_map, &entities.player, &collected_dots, dt);
-    update_blinky(tile_map, &entities.blinky, entities.player, dt);
+    update_ghosts_phase(&ghosts_phase, dt);
+    update_blinky(tile_map, &entities.blinky, ghosts_phase.state, entities.player, dt);
 
     BeginDrawing();
 
