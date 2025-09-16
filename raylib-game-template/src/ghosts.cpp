@@ -1,0 +1,120 @@
+#include "ghosts.h"
+#include <cmath>
+
+void update_blinky(TileMap& tile_map, Entity* blinky, const Entity& player, float dt) {
+  float& blinky_x = blinky->tile_pos.x;
+  float& blinky_y = blinky->tile_pos.y;
+
+  TILE_TYPE curr_tile = tile_map.get(blinky_x, blinky_y);
+  TILE_TYPE left_tile = tile_map.get(blinky_x - 1.0f, blinky_y);
+  TILE_TYPE right_tile = tile_map.get(blinky_x + 1.0f, blinky_y);
+  TILE_TYPE up_tile = tile_map.get(blinky_x, blinky_y - 1.0f);
+  TILE_TYPE down_tile = tile_map.get(blinky_x, blinky_y + 1.0f);
+
+  // Vector2 target_tile_pos = Vector2{ player.tile_pos.x, player.tile_pos.y };
+  Vector2 target_tile_pos = Vector2{ static_cast<float>(tile_map.cols) - 2.0f, -4.0f };
+  Vector2 left_tile_pos = Vector2{ blinky_x - 1.0f, blinky_y };
+  Vector2 right_tile_pos = Vector2{ blinky_x + 1.0f, blinky_y };
+  Vector2 up_tile_pos = Vector2{ blinky_x, blinky_y - 1.0f };
+  Vector2 down_tile_pos = Vector2{ blinky_x, blinky_y + 1.0f };
+
+  MOVEMENT_DIR forbidden_dir = MOVEMENT_DIR::STOPPED;
+
+  // Start of the game
+  if (blinky->dir == MOVEMENT_DIR::STOPPED) {
+    blinky->dir = MOVEMENT_DIR::RIGHT;
+  }
+
+  bool can_go_up    = up_tile != TILE_TYPE::WALL && blinky->dir != MOVEMENT_DIR::DOWN;
+  bool can_go_down  = down_tile != TILE_TYPE::WALL && blinky->dir != MOVEMENT_DIR::UP;
+  bool can_go_left  = left_tile != TILE_TYPE::WALL && blinky->dir != MOVEMENT_DIR::RIGHT;
+  bool can_go_right = right_tile != TILE_TYPE::WALL && blinky->dir != MOVEMENT_DIR::LEFT;
+  
+  // assume you’ve already computed the distances
+  float right_dist = Vector2DistanceSqr(right_tile_pos, target_tile_pos);
+  float left_dist  = Vector2DistanceSqr(left_tile_pos, target_tile_pos);
+  float up_dist    = Vector2DistanceSqr(up_tile_pos, target_tile_pos);
+  float down_dist  = Vector2DistanceSqr(down_tile_pos, target_tile_pos);
+
+  // store distance for each direction in your own priority order
+  MOVEMENT_DIR order[3];
+  float dists[3];
+  int count = 0;
+
+  // fill only legal (non-forbidden) directions
+  if (can_go_up)   { order[count] = MOVEMENT_DIR::UP;    dists[count++] = up_dist; }
+  if (can_go_left) { order[count] = MOVEMENT_DIR::LEFT;  dists[count++] = left_dist; }
+  if (can_go_down) { order[count] = MOVEMENT_DIR::DOWN;  dists[count++] = down_dist; }
+  if (can_go_right){ order[count] = MOVEMENT_DIR::RIGHT; dists[count++] = right_dist; }
+
+  // if (can_go_left) {
+  //   TraceLog(LOG_INFO, "can_go_left is true");
+  // }
+  
+  float best_dist = 1e30f;
+  MOVEMENT_DIR best_dir = MOVEMENT_DIR::STOPPED;
+  const float eps = 0.0001f;
+
+  for (int i = 0; i < count; ++i) {
+    const float d = dists[i];
+    const MOVEMENT_DIR dir = order[i];
+
+    if (d < best_dist - eps) {
+      best_dist = d;
+      best_dir = dir;
+      // best_rank = rank;
+    } else if (std::fabsf(d - best_dist) <= eps) {
+      if (up_tile != TILE_TYPE::WALL) {
+        best_dir = MOVEMENT_DIR::UP;
+        break;
+      }
+      
+      if (left_tile != TILE_TYPE::WALL) {
+        best_dir = MOVEMENT_DIR::LEFT;
+        break;
+      }
+      
+      if (down_tile != TILE_TYPE::WALL) {
+        best_dir = MOVEMENT_DIR::DOWN;
+        break;
+      }
+
+      if (right_tile != TILE_TYPE::WALL) {
+        best_dir = MOVEMENT_DIR::RIGHT;
+        break;
+      }
+
+    }
+  }
+
+  // apply the choice
+  if (best_dir != MOVEMENT_DIR::STOPPED) {
+    blinky->dir = best_dir;
+  }
+  
+  // NOTE: take this out into a separate function per entity
+  blinky->move_timer += dt;
+  while (blinky->move_timer >= blinky->tile_step_time) {
+    blinky->move_timer -= blinky->tile_step_time;
+
+    // record previous tile BEFORE we step
+    blinky->prev_tile_pos = blinky->tile_pos;
+
+    switch(blinky->dir) {
+    case (MOVEMENT_DIR::UP): {
+      blinky->tile_pos.y -= 1.0f;
+    } break;
+    case (MOVEMENT_DIR::DOWN): {
+      blinky->tile_pos.y += 1.0f;
+    } break;
+    case (MOVEMENT_DIR::RIGHT): {
+      blinky->tile_pos.x += 1.0f;
+    } break;
+    case (MOVEMENT_DIR::LEFT): {
+      blinky->tile_pos.x -= 1.0f;
+    } break;
+    default: {
+    } break;
+    }
+  }
+}
