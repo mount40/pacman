@@ -67,7 +67,7 @@ render_ghost(const TileMap& tile_map, Entity* player) {
   
   player->anim_ctx.frames_counter++;
 
-  // NOTE: maybe this shouldn't a fixed timestep timer
+  // NOTE: maybe this shouldn't be a fixed timestep timer
   if (player->anim_ctx.frames_counter >= (60 / player->anim_ctx.frames_speed)) {
     player->anim_ctx.frames_counter = 0;
     player->anim_ctx.current_frame++;
@@ -81,7 +81,7 @@ render_ghost(const TileMap& tile_map, Entity* player) {
   const float frame_w = std::fabsf(src.width);
   const float frame_h = src.height;
 
-  // // NOTE: corner case, mirror purely in the source rect if scale.x is negative
+  // NOTE: corner case, mirror purely in the source rect if scale.x is negative
   if (player->scale.y < 0.0f) {
     src.x += frame_w;   // shift to the right edge of the frame
     src.width = -frame_w;
@@ -114,50 +114,14 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
 static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities);
 
 int main(void) {
-  // const std::uint32_t screen_width = 1024;
-  // const std::uint32_t screen_height = 768;
-
-  // Ultimately, this should be part of the tile map file
-  // const std::uint16_t tile_size = 32;
-  // 32,24 (x,y)
-  // const std::uint16_t num_tiles_x = screen_width / tile_size;
-  // const std::uint16_t num_tiles_y = screen_height / tile_size;
-
-  // std::array<std::string, num_tiles_y> level = {
-  //   // 32x24 map (cols x rows)
-  //   "################################", // 1
-  //   "#O............................O#", // 2
-  //   "#.####.####.###.#####.####.###.#", // 3
-  //   "#.####.####.###.#####.####.###.#", // 4
-  //   "#.####.####.###.#####.####.###.#", // 5
-  //   "#..............................#", // 6
-  //   "#.####.##.########.##.########.#", // 7
-  //   "#.####.##.########.##.########.#", // 8
-  //   "######...................#####.#", // 9
-  //   "######..........B........#####.#", // 10
-  //   "######.......### ###.....#####.#", // 11
-  //   "=     .......# IKC #.....      =", // 12
-  //   "######.......#######.....#######", // 13
-  //   "######...................#######", // 14
-  //   "######...................#######", // 15
-  //   "#......##.######.#####.........#", // 16
-  //   "#......##..........##......###.#", // 17
-  //   "#.#########.##.#########.#####.#", // 18
-  //   "#..............................#", // 19
-  //   "#.#...######....########...###.#", // 20
-  //   "#............##............###.#", // 21
-  //   "#.########..####..###########..#", // 22
-  //   "#O...........P................O#", // 23
-  //   "################################"  // 24
-  // };
-
-  
+  // Ultimately, tile size and map dimensions should be part of the tile map file
   const std::uint16_t tile_size = 24;
   const std::uint16_t num_tiles_x = 28;
   const std::uint16_t num_tiles_y = 36;
   const std::uint32_t screen_width = num_tiles_x * tile_size;
   const std::uint32_t screen_height = num_tiles_y * tile_size;
 
+  // The map should also be part of the tile map file
   std::array<std::string, num_tiles_y> level = {
     "                            ",
 	"                            ",
@@ -174,7 +138,7 @@ int main(void) {
 	"######.##### ## #####.######",
 	"     #.##### ## #####.#     ",
 	"     #.##    B     ##.#     ",
-	"     #.## ###==### ##.#     ",
+	"     #.## ###--### ##.#     ",
 	"######.## #      # ##.######",
 	"=     .   #I K C #   .     =",
 	"######.## #      # ##.######",
@@ -281,6 +245,7 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
   map->tiles = std::make_unique<TILE_TYPE[]>(cols * rows);
   // Load and create all tile structures we'll need
   TILE_TYPE wall_tile     = TILE_TYPE::WALL;
+  TILE_TYPE door_tile     = TILE_TYPE::DOOR;
   TILE_TYPE dot_tile      = TILE_TYPE::DOT;
   TILE_TYPE pill_tile     = TILE_TYPE::PILL;
   TILE_TYPE empty_tile    = TILE_TYPE::EMPTY;
@@ -295,6 +260,9 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
       switch (ch) {
       case '#': {
         map->set(col, row, wall_tile);
+      } break;
+      case '-': {
+        map->set(col, row, door_tile);
       } break;
       case '.': {
         map->set(col, row, dot_tile);

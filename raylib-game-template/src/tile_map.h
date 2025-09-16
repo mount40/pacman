@@ -5,15 +5,11 @@
 enum TILE_TYPE {
   EMPTY = 0,
   WALL,
+  DOOR,
   DOT,
   PILL,
   TELEPORT,
 };
-
-/* struct Tile { */
-/*   TILE_TYPE type; */
-/*   Texture2D texture; // This holds only the handle + some metadata */
-/* }; */
 
 struct TileMap {
   std::uint16_t tile_size;
@@ -26,10 +22,6 @@ struct TileMap {
     if ( (row * cols + col) > (cols * rows) ) return TILE_TYPE::EMPTY;
     return tiles[row * cols + col];
   }
-
-  /* inline const Tile& get_tile(std::uint16_t col, std::uint16_t row) const { */
-  /*   return tiles[row * cols + col]; */
-  /* } */
   
   // NOTE: For convenience, double check if this is actually okay and we don't mislead future users of the struct with this API
   inline TILE_TYPE get(float col, float row) const {

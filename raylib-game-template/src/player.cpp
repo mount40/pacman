@@ -63,34 +63,15 @@ void update_player(TileMap& tile_map, Entity* player, std::uint32_t* collected_d
                                    player->dir == MOVEMENT_DIR::RIGHT);
   bool should_stop_moving_up    = (up_tile == TILE_TYPE::WALL &&
                                    player->dir == MOVEMENT_DIR::UP);
-  bool should_stop_moving_down  = (down_tile == TILE_TYPE::WALL &&
+  // edge case: pacman cannot enter the monster pen, and can be entered only from top to bottom
+  bool should_stop_moving_down  = ((down_tile == TILE_TYPE::WALL ||
+                                    down_tile == TILE_TYPE::DOOR) &&
                                    player->dir == MOVEMENT_DIR::DOWN);
   bool should_stop_moving       = (should_stop_moving_left || should_stop_moving_right ||
                                    should_stop_moving_up   || should_stop_moving_down);
   if (should_stop_moving)
     player->dir = MOVEMENT_DIR::STOPPED;
   
-  // NOTE: make most of these into single booleans and check against that
-  // if (left_tile == TILE_TYPE::WALL &&
-  //     player->dir == MOVEMENT_DIR::LEFT) {
-  //   player->dir = MOVEMENT_DIR::STOPPED;
-  // }
-
-  // if (right_tile == TILE_TYPE::WALL &&
-  //     player->dir == MOVEMENT_DIR::RIGHT) {
-  //   player->dir = MOVEMENT_DIR::STOPPED;
-  // }
-
-  // if (up_tile == TILE_TYPE::WALL &&
-  //     player->dir == MOVEMENT_DIR::UP) {
-  //   player->dir = MOVEMENT_DIR::STOPPED;
-  // }
-
-  // if (down_tile == TILE_TYPE::WALL &&
-  //     player->dir == MOVEMENT_DIR::DOWN) {
-  //   player->dir = MOVEMENT_DIR::STOPPED;
-  // }
-
   bool should_start_moving_left        = (left_tile != TILE_TYPE::WALL &&
                                           player->next_dir == MOVEMENT_DIR::LEFT);
   bool should_start_moving_right       = (right_tile != TILE_TYPE::WALL &&
@@ -98,6 +79,7 @@ void update_player(TileMap& tile_map, Entity* player, std::uint32_t* collected_d
   bool should_start_moving_up          = (up_tile != TILE_TYPE::WALL &&
                                           player->next_dir == MOVEMENT_DIR::UP);
   bool should_start_moving_down        = (down_tile != TILE_TYPE::WALL &&
+                                          down_tile != TILE_TYPE::DOOR &&
                                           player->next_dir == MOVEMENT_DIR::DOWN);
   bool should_start_moving_in_next_dir = (should_start_moving_left  ||
                                           should_start_moving_right ||
@@ -109,26 +91,6 @@ void update_player(TileMap& tile_map, Entity* player, std::uint32_t* collected_d
     player->next_dir = MOVEMENT_DIR::STOPPED;
   }
   
-  // if (left_tile != TILE_TYPE::WALL && player->next_dir == MOVEMENT_DIR::LEFT) {
-  //   player->dir = player->next_dir;
-  //   player->next_dir = MOVEMENT_DIR::STOPPED;
-  // }
-
-  // if (right_tile != TILE_TYPE::WALL && player->next_dir == MOVEMENT_DIR::RIGHT) {
-  //   player->dir = player->next_dir;
-  //   player->next_dir = MOVEMENT_DIR::STOPPED;
-  // }
-
-  // if (up_tile != TILE_TYPE::WALL && player->next_dir == MOVEMENT_DIR::UP) {
-  //   player->dir = player->next_dir;
-  //   player->next_dir = MOVEMENT_DIR::STOPPED;
-  // }
-
-  // if (down_tile != TILE_TYPE::WALL && player->next_dir == MOVEMENT_DIR::DOWN) {
-  //   player->dir = player->next_dir;
-  //   player->next_dir = MOVEMENT_DIR::STOPPED;
-  // }
-
   player->move_timer += dt;
   while (player->move_timer >= player->tile_step_time) {
     player->move_timer -= player->tile_step_time;
