@@ -107,7 +107,7 @@ int main(void) {
   // Detects window close button or ESC key
   while (!WindowShouldClose()) {
     // Win condition
-    if (entities.player.collected_dots >= tile_map.dots) {
+    if (entities.player.collected_dots >= tile_map.all_dots) {
       BeginDrawing();
       ClearBackground(RAYWHITE);
       draw_map_and_entities(tile_map, &entities, ghosts_phase.state);
@@ -161,7 +161,7 @@ int main(void) {
     // that's happening after an entity moves to a new tile.
     check_and_resolve_entity_collisions(&entities);
 
-    update_player(tile_map, &entities.player, dt);
+    update_player(&tile_map, &entities.player, dt);
     update_ghosts_global_sm(&ghosts_phase, entities.player.is_energized,
                             scatter_schedule, chase_schedule, dt);
     update_ghost(&entities.blinky, GHOST_TYPE::BLINKY, ghost_ctx, dt);
@@ -235,7 +235,7 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
       case 'P': {
         // Player/Pacman
         Vector2 tile_pos = Vector2{ static_cast<float>(col), static_cast<float>(row) };
-        init_entity(&entities->player, tile_pos, "resources/pacman_texture.png", 0.15f); // movement speed of 5 tiles/sec
+        init_entity(&entities->player, tile_pos, "resources/pacman_texture.png", 0.13f); // movement speed of ~8 tiles/sec
         map->set(col, row, empty_tile);
       } break;
       case 'B': {

@@ -1,4 +1,5 @@
 #include "entity.h"
+#include "raylib.h"
 #include "raymath.h"
 
 void handle_entity_on_teleport_tile(Entity* entity,
@@ -87,7 +88,7 @@ void render_entity(const TileMap& tile_map, Entity* entity, Color tint) {
     src.width = frame_w;
   }
 
-  src.width = frame_w;
+  // src.width = frame_w;
   const float draw_w = frame_w * std::fabsf(entity->scale.x);
   const float draw_h = frame_h * std::fabsf(entity->scale.y);
  

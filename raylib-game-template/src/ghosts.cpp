@@ -1,5 +1,6 @@
 #include "ghosts.h"
 #include <algorithm>
+#include "raymath.h"
 
 static constexpr int prioritize_dir(MOVEMENT_DIR d) {
   switch (d) {

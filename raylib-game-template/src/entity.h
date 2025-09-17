@@ -39,9 +39,15 @@ inline bool entity_collision(const Entity& a, const Entity& b) {
   return a.tile_pos.x == b.tile_pos.x && a.tile_pos.y == b.tile_pos.y;
 }
 
-inline Vector2 get_tile_pos_ahead_of_entity(const Entity& e, int n) {
-  Vector2 delta = get_step_delta(e.dir);
-  return { e.tile_pos.x + delta.x*n, e.tile_pos.y + delta.y*n };
+inline Vector2 get_tile_pos_ahead_of_entity(const Entity& entity, int tiles) {
+  Vector2 delta = get_step_delta(entity.dir);
+  return { entity.tile_pos.x + delta.x * tiles, entity.tile_pos.y + delta.y * tiles };
+}
+
+inline TILE_TYPE get_tile_ahead_of_entity(const TileMap& tile_map,
+                                          const Entity& entity) {
+  Vector2 delta = get_step_delta(entity.dir);
+  return tile_map.get(delta.x, delta.y);
 }
 
 void handle_entity_on_teleport_tile(Entity* entity, std::uint16_t num_tile_map_cols);

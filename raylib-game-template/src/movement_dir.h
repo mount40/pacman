@@ -9,6 +9,7 @@ enum MOVEMENT_DIR {
   LEFT
 };
 
+// Basically MOVEMENT_DIR negate
 inline MOVEMENT_DIR get_opposite_dir(MOVEMENT_DIR dir) {
   switch (dir) {
   case MOVEMENT_DIR::UP:    return MOVEMENT_DIR::DOWN;
@@ -19,8 +20,11 @@ inline MOVEMENT_DIR get_opposite_dir(MOVEMENT_DIR dir) {
   }
 }
 
+// Helper for rotating based on MOVEMENT_DIR.
+// IMPORTANT: In the case of MOVEMENT_DIR::LEFT we don't rotate but flip the whole sprite by negating the Y scale.
+// See the helper function "get_dir_scale_y_sign".
 inline float get_dir_rotation(MOVEMENT_DIR dir) {
-  // in the case of LEFT we flip by negating the scale, not by rotation
+
   switch (dir) {
   case MOVEMENT_DIR::UP:    return 270.0f;
   case MOVEMENT_DIR::DOWN:  return  90.0f;
@@ -30,10 +34,12 @@ inline float get_dir_rotation(MOVEMENT_DIR dir) {
   }
 }
 
+// Helper for LEFT direction rotations
 inline float get_dir_scale_y_sign(MOVEMENT_DIR dir) {
     return (dir == MOVEMENT_DIR::LEFT) ? -1.0f : 1.0f;
 }
 
+// Get the positional delta in a given direction
 inline Vector2 get_step_delta(MOVEMENT_DIR dir) {
   switch (dir) {
   case MOVEMENT_DIR::UP:    return { 0.0f, -1.0f };

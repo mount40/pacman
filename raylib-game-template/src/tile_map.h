@@ -16,7 +16,7 @@ struct TileMap {
   std::uint16_t tile_size;
   std::uint16_t rows;
   std::uint16_t cols;
-  std::uint16_t dots;
+  std::uint16_t all_dots;
   std::unique_ptr<TILE_TYPE[]> tiles;
 
   inline bool in_bounds(std::uint16_t col, std::uint16_t row) const noexcept {
@@ -41,14 +41,11 @@ struct TileMap {
 
   inline void set(std::uint16_t col, std::uint16_t row, TILE_TYPE tile) noexcept {
     if (!in_bounds(col, row)) return;
-    auto& cell = tiles[index(col, row)];
-    // Update dots count based on transition
-    if (cell == TILE_TYPE::DOT && tile != TILE_TYPE::DOT) { 
-        if (dots) --dots; 
-    } else if (cell != TILE_TYPE::DOT && tile == TILE_TYPE::DOT) {
-        ++dots; 
+    // Update dots count whenever we add a new dot 
+    if (tile == TILE_TYPE::DOT) {
+        ++all_dots; 
     }
-    cell = tile;
+    tiles[index(col, row)] = tile;
   }
 
   inline void set(float col, float row, TILE_TYPE tile) noexcept {
