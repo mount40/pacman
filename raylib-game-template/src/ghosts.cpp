@@ -1,12 +1,5 @@
 #include "ghosts.h"
-#include <cmath>
-#include <array>
 #include <algorithm>
-#include "raylib.h"
-
-// NOTE: move this to be passed from caller of update_ghost()
-static constexpr double SCATTER_DURS[4] = {7.0, 7.0, 5.0, 5.0};
-static constexpr double CHASE_DURS[4]   = {20.0, 20.0, 20.0, std::numeric_limits<double>::infinity()};
 
 static constexpr int prioritize_dir(MOVEMENT_DIR d) {
   switch (d) {
@@ -18,115 +11,86 @@ static constexpr int prioritize_dir(MOVEMENT_DIR d) {
   }
 }
 
-static inline void start_scatter(GhostPhase& p) {
-  p.state = GHOST_STATE::SCATTER;
-  double d = SCATTER_DURS[std::min(p.cycle_idx, 3)];
-  p.main_timer.set_duration(d);
-  p.main_timer.start();
+static void start_scatter(GhostsStateMachine& sm, const double scatter_schedule[]) {
+  sm.state = GHOST_STATE::SCATTER;
+  double d = scatter_schedule[std::min(sm.cycle_idx, 3)];
+  sm.main_timer.set_duration(d);
+  sm.main_timer.start();
 }
 
-static inline void start_chase(GhostPhase& p) {
-  p.state = GHOST_STATE::CHASE;
-  double d = CHASE_DURS[std::min(p.cycle_idx, 3)];
+static void start_chase(GhostsStateMachine& sm, const double chase_schedule[]) {
+  sm.state = GHOST_STATE::CHASE;
+  double d = chase_schedule[std::min(sm.cycle_idx, 3)];
   if (std::isfinite(d)) {
-    p.main_timer.set_duration(d);
-    p.main_timer.start();
+    sm.main_timer.set_duration(d);
+    sm.main_timer.start();
   } else {
-    if (p.main_timer.running()) p.main_timer.stop(); // infinite chase
+    if (sm.main_timer.running()) sm.main_timer.stop(); // infinite chase
   }
 }
 
-static inline
-bool can_step_into_door(MOVEMENT_DIR dir, const Entity& g, bool fromInsidePen) {
+static bool can_step_into_door(MOVEMENT_DIR dir, const Entity& ghost, bool from_inside_pen) {
   // Entering the pen is only from above (moving DOWN) and only when dead.
-  if (dir == MOVEMENT_DIR::DOWN) return g.is_dead;
+  if (dir == MOVEMENT_DIR::DOWN) return ghost.is_dead;
 
   // Allow leaving pen upward when alive
-  if (dir == MOVEMENT_DIR::UP)   return fromInsidePen && !g.is_dead;
+  if (dir == MOVEMENT_DIR::UP)   return from_inside_pen && !ghost.is_dead;
   return false;
 }
 
-static inline
-bool is_walkable(TILE_TYPE dest, MOVEMENT_DIR dir, const Entity& g, bool fromInsidePen) {
+static bool is_walkable(TILE_TYPE dest, MOVEMENT_DIR dir,
+                        const Entity& ghost, bool from_inside_pen) {
   if (dest == TILE_TYPE::WALL)  return false;
   if (dest != TILE_TYPE::DOOR)  return true;
-  return can_step_into_door(dir, g, fromInsidePen);
+  return can_step_into_door(dir, ghost, from_inside_pen);
 }
 
-static inline
-Vector2 get_scatter_target_tile_pos(GHOST_TYPE ghost,
-                                    std::uint16_t tile_map_cols,
-                                    std::uint16_t tile_map_rows) {
-  switch (ghost) {
-  case(GHOST_TYPE::BLINKY): {
-    return Vector2{ static_cast<float>(tile_map_cols) - 2.0f, 0.0f };
-  } break;
-  case (GHOST_TYPE::PINKY): {
-    return Vector2{ 2.0f, 0.0f };
-  } break;
-  case (GHOST_TYPE::INKY): {
-    return Vector2{ static_cast<float>(tile_map_cols) - 2.0f,
-                    static_cast<float>(tile_map_rows) - 1.0f };
-  } break;
-  case (GHOST_TYPE::CLYDE): {
-    return Vector2{ 2.0f, static_cast<float>(tile_map_rows) - 1.0f };
-  } break;
-  default: {
-    return Vector2{};
-  } break;
+static Vector2 get_scatter_target(GHOST_TYPE ghost, const GhostContext& ctx){
+  switch(ghost){
+    case GHOST_TYPE::BLINKY: return { (float)ctx.map.cols - 2, 0 };
+    case GHOST_TYPE::PINKY:  return { 2, 0 };
+    case GHOST_TYPE::INKY:   return { (float)ctx.map.cols - 2, (float)ctx.map.rows - 1 };
+    case GHOST_TYPE::CLYDE:  return { 2, (float)ctx.map.rows - 1 };
+    default:                 return {};
   }
 }
 
-static Vector2 get_chase_target_tile_pos(GHOST_TYPE ghost,
-                                         std::uint16_t tile_map_rows,
-                                         const Vector2& player_tile_pos,
-                                         MOVEMENT_DIR player_dir,
-                                         const Vector2& blinky_tile_pos = {},
-                                         const Vector2& clyde_tile_pos = {}) {
-  switch (ghost) {
-  case(GHOST_TYPE::BLINKY): {
-    return player_tile_pos;
-  } break;
-  case (GHOST_TYPE::PINKY): {
-    Vector2 delta = get_step_delta(player_dir);
-    return { player_tile_pos.x + delta.x * 4.0f,
-             player_tile_pos.y + delta.y * 4.0f };
-  } break;
-  case (GHOST_TYPE::INKY): {
-    // Two ahead of player
-    Vector2 delta = get_step_delta(player_dir);
-    Vector2 two_ahead{ player_tile_pos.x + delta.x * 2.0f,
-                       player_tile_pos.y + delta.y * 2.0f };
-    // Vector from Blinky to that point
-    Vector2 v{ two_ahead.x - blinky_tile_pos.x,
-               two_ahead.y - blinky_tile_pos.y };
-    // Double it
-    return { two_ahead.x + v.x,
-             two_ahead.y + v.y };
-  } break;
-  case (GHOST_TYPE::CLYDE): {
-    float dist2 = Vector2DistanceSqr(clyde_tile_pos, player_tile_pos); 
-    // if far, chase; if near, retreat to scatter corner
-    if (dist2 >= 64.0f) // 8 tiles squared
-      return player_tile_pos;
-    return Vector2{ 2.0f, static_cast<float>(tile_map_rows) - 1.0f };
-  } break;
-  default: {
-    return Vector2{};
-  } break;
-  }  
+static Vector2 get_chase_target(GHOST_TYPE type, const Entity& ghost,
+                                const GhostContext& ctx){
+  switch(type){
+    case GHOST_TYPE::BLINKY:
+      return ctx.player.tile_pos;
+
+    case GHOST_TYPE::PINKY: {
+      Vector2 t = get_tile_pos_ahead_of_entity(ctx.player, 4); return t;
+    }
+
+    case GHOST_TYPE::INKY: {
+      Vector2 two = get_tile_pos_ahead_of_entity(ctx.player, 2);
+      Vector2 v{ two.x - ctx.blinky.tile_pos.x, two.y - ctx.blinky.tile_pos.y };
+      return { two.x + v.x, two.y + v.y };
+    }
+
+    case GHOST_TYPE::CLYDE: {
+      float dx = ctx.player.tile_pos.x - ghost.tile_pos.x;
+      float dy = ctx.player.tile_pos.y - ghost.tile_pos.y;
+      float d2 = Vector2DistanceSqr(ctx.player.tile_pos, ghost.tile_pos);
+      return (d2 >= 64.0f) ? ctx.player.tile_pos : get_scatter_target(GHOST_TYPE::CLYDE, ctx);
+    }
+    default: return {};
+  }
 }
 
 static void update_ghost_tile_pos(Entity* entity, MOVEMENT_DIR new_dir, float dt) {
-  // entity->move_timer += dt;
-  entity->move_timer += (1.0f / 60.0f);
+  // entity->move_timer += (1.0f / 60.0f);
+  entity->move_timer += dt;
   while (entity->move_timer >= entity->tile_step_time) {
     entity->move_timer -= entity->tile_step_time;
 
-    // update direction only once per tile
+    // Update direction only once per tile
     entity->dir = new_dir;
 
-    // record previous tile BEFORE we step
+    // Record previous tile BEFORE we step
     entity->prev_tile_pos = entity->tile_pos;
     Vector2 delta = get_step_delta(entity->dir);
     entity->tile_pos.x += delta.x;
@@ -173,8 +137,8 @@ static void move_to_tile(TileMap& tile_map,
 
   std::sort(candidates, candidates + candidates_idx,
             [](const PathTile& a, const PathTile& b) {
-    if (a.walkable != b.walkable) return a.walkable;   // true before false
-    if (a.dist != b.dist)       return a.dist < b.dist;
+    if (a.walkable != b.walkable) return a.walkable;   // check if walkable at all before else
+    if (a.dist != b.dist)         return a.dist < b.dist;
     return prioritize_dir(a.dir) < prioritize_dir(b.dir);
   });
 
@@ -182,9 +146,12 @@ static void move_to_tile(TileMap& tile_map,
   update_ghost_tile_pos(blinky, new_dir, dt);
 }
 
-void update_ghosts_phase(GhostPhase* phase, bool is_player_energized, float dt) {
+void update_ghosts_global_sm(GhostsStateMachine* phase, bool is_player_energized,
+                             const double scatter_schedule[],
+                             const double chase_schedule[],
+                             float dt) {
   // Initialize first phase
-  if (phase->state == GHOST_STATE::NONE) start_scatter(*phase);
+  if (phase->state == GHOST_STATE::NONE) start_scatter(*phase, scatter_schedule);
 
   // Handle frightened overlay
   if (is_player_energized) {
@@ -229,72 +196,65 @@ void update_ghosts_phase(GhostPhase* phase, bool is_player_energized, float dt) 
   if (phase->state == GHOST_STATE::SCATTER) {
     phase->state = GHOST_STATE::CHASE;
     phase->change_seq++;
-    start_chase(*phase);
+    start_chase(*phase, chase_schedule);
   } else if (phase->state == GHOST_STATE::CHASE) {
     phase->cycle_idx = std::min(phase->cycle_idx + 1, 3);
-    start_scatter(*phase);
+    start_scatter(*phase, scatter_schedule);
   }
 }
 
-void update_ghost(TileMap& tile_map, Entity* entity, GHOST_TYPE ghost,
-                  const GhostPhase& phase, const Entity& player, float dt,
-                  const Vector2 blinky_tile_pos, const Vector2 clyde_tile_pos) {
-  // Start of the game, default to movement to the right
-  if (entity->dir == MOVEMENT_DIR::STOPPED) {
-    entity->dir = MOVEMENT_DIR::RIGHT;
+void update_ghost(Entity* ghost, GHOST_TYPE type, const GhostContext& ctx, float dt) {
+  if (ghost->dir == MOVEMENT_DIR::STOPPED) {
+    ghost->dir = MOVEMENT_DIR::RIGHT;
   }
 
-  Vector2 target_tile_pos = {};
-  MOVEMENT_DIR forbidden_dir = MOVEMENT_DIR::STOPPED;
+  MOVEMENT_DIR forbidden = MOVEMENT_DIR::STOPPED;
 
-  if (entity->last_seen_change_seq != phase.change_seq) {
-    forbidden_dir = entity->dir;
-    entity->dir = get_opposite_dir(entity->dir);    
-    entity->last_seen_change_seq = phase.change_seq;
+  // Reverse once per phase change
+  if (ghost->last_seen_change_seq != ctx.phase.change_seq) {
+    forbidden = ghost->dir;
+    ghost->dir = get_opposite_dir(ghost->dir);
+    ghost->last_seen_change_seq = ctx.phase.change_seq;
   }
 
-  if (phase.state == GHOST_STATE::SCATTER) {
-    target_tile_pos = get_scatter_target_tile_pos(ghost, tile_map.cols, tile_map.rows);
+  Vector2 target{};
+  // Exit pen first
+  if (ghost->in_monster_pen) {
+    if (Vector2Equals(ghost->tile_pos, ctx.pen_door))
+      ghost->in_monster_pen = false;
+    else 
+      target = ctx.pen_door;
   }
 
-  if (phase.state == GHOST_STATE::CHASE) {
-    target_tile_pos = get_chase_target_tile_pos(ghost,
-                                                tile_map.rows,
-                                                player.tile_pos,
-                                                player.dir,
-                                                blinky_tile_pos,
-                                                clyde_tile_pos);
-  }
-
-  if (phase.state == GHOST_STATE::FRIGHTENED) {
-    // when frightened ghosts turn around 180 degrees and run to a random tile
-    target_tile_pos = Vector2{
-      static_cast<float>(GetRandomValue(0, tile_map.cols - 1)),
-      static_cast<float>(GetRandomValue(0, tile_map.rows - 1))
-    };
-  }
-
-  // NOTE: Refactor this
-  if (entity->in_monster_pen) {
-    // NOTE: don't hardcode this position bellow
-    if (Vector2Equals(entity->tile_pos, Vector2{ 13.0f, 14.0f })) {
-      entity->in_monster_pen = false;
-    } else {
-      // Gotta get out of that penitentiary first, eh?
-      target_tile_pos = Vector2{ 13.0f, 14.0f };
+  // Being dead overrides all other states
+  if (ghost->is_dead) {
+    target = ctx.pen_home;
+    if (Vector2Equals(ghost->tile_pos, ctx.pen_home)) {
+      ghost->is_dead = false;
+      ghost->in_monster_pen = true;
     }
   }
-  
-  // Being dead overrides all other states
-  if (entity->is_dead) {
-    // NOTE: don't hardcode this position bellow
-    target_tile_pos = Vector2{ 13.0f, 17.0f };
-    // Ghost is inside the monster pen, ressurects are in order
-    if (Vector2Equals(entity->tile_pos, target_tile_pos)) {
-      entity->is_dead = false;
-      entity->in_monster_pen = true;
-    } 
+
+  // If no target tile is forced we can finally set the
+  // target tile based on global state machine state 
+  if (target.x == 0 && target.y == 0 &&
+      !(ghost->is_dead || ghost->in_monster_pen)) {
+    switch (ctx.phase.state) {
+    case GHOST_STATE::SCATTER: {
+      target = get_scatter_target(type, ctx);
+    } break;
+    case GHOST_STATE::CHASE: {
+      target = get_chase_target(type, *ghost, ctx);
+    } break;
+    case GHOST_STATE::FRIGHTENED: {
+      target = {
+        (float)GetRandomValue(0, ctx.map.cols - 1),
+        (float)GetRandomValue(0, ctx.map.rows - 1)
+      };
+    } break;
+    default: break;
+    }
   }
- 
-  move_to_tile(tile_map, entity, target_tile_pos, forbidden_dir, dt);
+
+  move_to_tile(ctx.map, ghost, target, forbidden, dt);
 }

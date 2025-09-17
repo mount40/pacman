@@ -29,7 +29,7 @@ enum class GHOST_TYPE {
   CLYDE,
 };
 
-struct GhostPhase {
+struct GhostsStateMachine {
   GHOST_STATE state{GHOST_STATE::NONE};
   Timer main_timer;                         // for SCATTER/CHASE
   Timer frightened_timer;                   // overlay timer
@@ -39,7 +39,18 @@ struct GhostPhase {
   std::uint16_t change_seq{0};              // for ghosts to know if state changed
 };
 
-void update_ghosts_phase(GhostPhase* phase, bool is_player_energized, float dt);
-void update_ghost(TileMap& tile_map, Entity* entity, GHOST_TYPE ghost,
-                  const GhostPhase& phase, const Entity& player, float dt,
-                  const Vector2 blinky_tile_pos, const Vector2 clyde_tile_pos);
+// Everything needed for a ghost update per frame
+struct GhostContext {
+  TileMap&        map;
+  const GhostsStateMachine& phase;
+  const Entity&   player;
+  const Entity&   blinky;     // needed by Inky’s chase rule
+  Vector2         pen_door;   // usually {13,14}
+  Vector2         pen_home;   // usually {13,17}
+};
+
+void update_ghosts_global_sm(GhostsStateMachine* phase, bool is_player_energized,
+                             const double scatter_schedule[],
+                             const double chase_schedule[],
+                             float dt);
+void update_ghost(Entity* g, GHOST_TYPE type, const GhostContext& ctx, float dt);
