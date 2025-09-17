@@ -3,7 +3,7 @@
 #include <cmath>
 #include <memory>
 
-enum TILE_TYPE {
+enum class TILE_TYPE : std::uint8_t {
   EMPTY = 0,
   WALL,
   DOOR,

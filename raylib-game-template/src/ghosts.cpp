@@ -99,7 +99,7 @@ static void update_ghost_tile_pos(Entity* entity, MOVEMENT_DIR new_dir, float dt
   }
 }
 
-static void move_to_tile(TileMap& tile_map,
+static void move_to_tile(const TileMap& tile_map,
                          Entity* blinky, const Vector2& target_tile_pos,
                          MOVEMENT_DIR forbidden_dir, float dt) {
   if (forbidden_dir == MOVEMENT_DIR::STOPPED && blinky->dir != MOVEMENT_DIR::STOPPED) {

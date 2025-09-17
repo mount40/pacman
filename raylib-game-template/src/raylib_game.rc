@@ -9,13 +9,13 @@ BEGIN
 	//BLOCK "080904E4" 	// English UK
     BLOCK "040904E4"	// English US
     BEGIN
-      VALUE "CompanyName", "raylib technologies"
-      VALUE "FileDescription", "raylib-game | A great game"
+      VALUE "CompanyName", ""
+      VALUE "FileDescription", "Pacman"
       VALUE "FileVersion", "1.0"
-      VALUE "InternalName", "raylib-game"
-      VALUE "LegalCopyright", "(c) 2025 raylib technologies (@raylibtech)"
-      //VALUE "OriginalFilename", "raylib_app.exe"
-      VALUE "ProductName", "raylib-game"
+      VALUE "InternalName", "Pacman"
+      VALUE "LegalCopyright", ""
+      //VALUE "OriginalFilename", "pacman.exe"
+      VALUE "ProductName", "Pacman"
       VALUE "ProductVersion", "1.0"
     END
   END

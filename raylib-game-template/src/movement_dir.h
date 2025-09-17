@@ -1,7 +1,8 @@
 #pragma once
+#include <cstdint>
 #include "raylib.h"
 
-enum MOVEMENT_DIR {
+enum class MOVEMENT_DIR : std::uint8_t {
   STOPPED = 0,
   UP,
   DOWN,
