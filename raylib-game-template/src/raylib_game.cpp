@@ -22,41 +22,8 @@ struct Entities {
   Entity clyde;
 };
 
-// static void
-// init_ghost(Entity* player, const Vector2& tile_pos, const char* texture_path, float tile_step_time) {
-//   player->tile_pos = tile_pos;
-//   player->prev_tile_pos = tile_pos;
-//   player->dir = MOVEMENT_DIR::STOPPED;
-//   player->move_timer = 0.0f;
-//   player->tile_step_time = tile_step_time; // 0.2f; // movement speed of 5 tiles/sec
-
-//   // NOTE: Set to "resources/pacman_texture.png"
-//   player->texture = LoadTexture(texture_path);
-//   player->scale = Vector2{ 1.5f, 1.5f };
-//   player->rotation = 0.0f;
-
-//   // setup animation context
-//   player->anim_ctx = {};
-//   player->anim_ctx.frame_rec = {
-//     0.0f,
-//     0.0f,
-//     static_cast<float>(player->texture.width / 8),
-//     static_cast<float>(player->texture.height)
-//   };
-//   player->anim_ctx.current_frame = 0;
-//   player->anim_ctx.frames_counter = 0;
-
-//   // We assume 8 frames per sprite sheet, always
-//   player->anim_ctx.frames_speed = 8;
-
-//   player->is_energized = false;
-//   player->energized_timer = Timer();
-//   player->is_dead = false;
-//   player->in_monster_pen = true;
-// }
-
 static void
-render_ghost(const TileMap& tile_map, Entity* player) {
+render_ghost(const TileMap& tile_map, Entity* player, Color tint) {
   const Texture2D player_texture = player->texture;
   const float tile_size = static_cast<float>(tile_map.tile_size);
 
@@ -110,7 +77,7 @@ render_ghost(const TileMap& tile_map, Entity* player) {
   // Origin inside destination rect (0,0 = top-left; to center use half size)
   Vector2 origin = { draw_w * 0.5f, draw_h * 0.5f  };
 
-  DrawTexturePro(player_texture, src, dst, origin, player->rotation, WHITE);
+  DrawTexturePro(player_texture, src, dst, origin, player->rotation, tint);
 }
 
 
@@ -119,7 +86,8 @@ static std::pair<std::unique_ptr<TileMap>, std::unique_ptr<Entities>>
 parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size);
 
 static void check_and_resolve_entity_collisions(Entities* entities);
-static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities);
+static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities,
+                               const GhostPhase& ghost_phase);
 
 int main(void) {
   // Ultimately, tile size and map dimensions should be part of the tile map file
@@ -193,7 +161,7 @@ int main(void) {
       int textWidth = MeasureText(msg, fontSize);
       int textHeight = fontSize;
 
-      DrawMapAndEntities(tile_map, &entities);
+      DrawMapAndEntities(tile_map, &entities, ghosts_phase);
       DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
                10, 10, 20, MAROON);
       DrawText(msg, screen_width / 2 - textWidth / 2,
@@ -213,7 +181,7 @@ int main(void) {
       int textWidth = MeasureText(msg, fontSize);
       int textHeight = fontSize;
 
-      DrawMapAndEntities(tile_map, &entities);
+      DrawMapAndEntities(tile_map, &entities, ghosts_phase);
       DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
                10, 10, 20, MAROON);
       DrawText(msg, screen_width / 2 - textWidth / 2,
@@ -222,7 +190,6 @@ int main(void) {
       EndDrawing();
       continue;
     }
-    
 
     // Gameplay loop
     const float dt = GetFrameTime();
@@ -271,7 +238,7 @@ int main(void) {
 
     ClearBackground(RAYWHITE);
 
-    DrawMapAndEntities(tile_map, &entities);
+    DrawMapAndEntities(tile_map, &entities, ghosts_phase);
 
     DrawFPS(940, 10);
     DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
@@ -388,7 +355,8 @@ static void check_and_resolve_entity_collisions(Entities* entities) {
   }
 }
 
-static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities) {
+static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities,
+                               const GhostPhase& ghost_phase) {
   std::uint16_t tile_size = tile_map.tile_size;
 
   // NOTE: this seems like it could be made a bit more cache friendly
@@ -413,8 +381,42 @@ static void DrawMapAndEntities(const TileMap& tile_map, Entities* entities) {
   }
 
   render_player(tile_map, &entities->player);
-  render_ghost(tile_map, &entities->blinky);
-  render_ghost(tile_map, &entities->inky);
-  render_ghost(tile_map, &entities->pinky);
-  render_ghost(tile_map, &entities->clyde);
+
+  // NOTE: cleanup this
+
+  // Make ghosts with 30% opacity when dead
+  Color dead_ghost_tint = WHITE;
+  dead_ghost_tint.a = static_cast<unsigned char>(255 * 0.3f);
+  
+  if (entities->blinky.is_dead)
+    render_ghost(tile_map, &entities->blinky, dead_ghost_tint);
+  else if (ghost_phase.state == GHOST_STATE::FRIGHTENED)
+    render_ghost(tile_map, &entities->blinky, DARKBLUE);
+  else
+    render_ghost(tile_map, &entities->blinky, WHITE);
+
+  if (entities->pinky.is_dead)
+    render_ghost(tile_map, &entities->pinky, dead_ghost_tint);
+  else if (ghost_phase.state == GHOST_STATE::FRIGHTENED)
+    render_ghost(tile_map, &entities->pinky, DARKBLUE);
+  else
+    render_ghost(tile_map, &entities->pinky, WHITE);
+
+  if (entities->inky.is_dead)
+    render_ghost(tile_map, &entities->inky, dead_ghost_tint);
+  else if (ghost_phase.state == GHOST_STATE::FRIGHTENED)
+    render_ghost(tile_map, &entities->inky, DARKBLUE);
+  else
+    render_ghost(tile_map, &entities->inky, WHITE);
+
+  if (entities->clyde.is_dead)
+    render_ghost(tile_map, &entities->clyde, dead_ghost_tint);
+  else if (ghost_phase.state == GHOST_STATE::FRIGHTENED)
+    render_ghost(tile_map, &entities->clyde, DARKBLUE);
+  else
+    render_ghost(tile_map, &entities->clyde, WHITE);
+
+  // render_ghost(tile_map, &entities->inky);
+  // render_ghost(tile_map, &entities->pinky);
+  // render_ghost(tile_map, &entities->clyde);
 }

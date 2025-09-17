@@ -4,6 +4,7 @@
 #include <algorithm>
 #include "raylib.h"
 
+// NOTE: move this to be passed from caller of update_ghost()
 static constexpr double SCATTER_DURS[4] = {7.0, 7.0, 5.0, 5.0};
 static constexpr double CHASE_DURS[4]   = {20.0, 20.0, 20.0, std::numeric_limits<double>::infinity()};
 
@@ -133,7 +134,6 @@ static void update_ghost_tile_pos(Entity* entity, MOVEMENT_DIR new_dir, float dt
   }
 }
 
-// NOTE: rename "blinky" to "ghost"
 static void move_to_tile(TileMap& tile_map,
                          Entity* blinky, const Vector2& target_tile_pos,
                          MOVEMENT_DIR forbidden_dir, float dt) {
@@ -144,7 +144,6 @@ static void move_to_tile(TileMap& tile_map,
   float& blinky_x = blinky->tile_pos.x;
   float& blinky_y = blinky->tile_pos.y;
   
-  // NOTE: abstract into a function, used by both ghosts and player
   TILE_TYPE current_tile = tile_map.get(blinky_x, blinky_y);
   if (current_tile == TILE_TYPE::TELEPORT) {
     handle_entity_on_teleport_tile(blinky, tile_map.cols);
@@ -182,65 +181,6 @@ static void move_to_tile(TileMap& tile_map,
   MOVEMENT_DIR new_dir = candidates_idx ? candidates[0].dir : MOVEMENT_DIR::RIGHT;
   update_ghost_tile_pos(blinky, new_dir, dt);
 }
-
-// // NOTE: make this data-driven
-// void update_ghosts_phase(GhostPhase* curr_phase, bool is_player_energized, float dt) {
-//   if (is_player_energized) {
-//     curr_phase->state = GHOST_STATE::FRIGHTENED;
-//     return;
-//   }
-  
-//   if (curr_phase->state == GHOST_STATE::NONE) {
-//     curr_phase->state = GHOST_STATE::SCATTER;
-//     curr_phase->timer.set_duration(7.0);
-//     curr_phase->timer.start();
-//   }
-
-//   // After the 4th scatter -> ghosts chase indefinetely
-//   // NOTE: stop the clock running maybe
-//   if ((curr_phase->state == GHOST_STATE::CHASE ||
-//        curr_phase->state == GHOST_STATE::FRIGHTENED) &&
-//       curr_phase->num_scatter_to_chase_trans > 4) {
-//     // stop the watch if running
-//     if (curr_phase->timer.running()) {
-//       curr_phase->timer.stop();
-//     }
-//     return;
-//   }
-
-//   // We're in scatter and the timer has run out
-//   if ((curr_phase->state == GHOST_STATE::SCATTER ||
-//        curr_phase->state == GHOST_STATE::FRIGHTENED) &&
-//       !curr_phase->timer.running()) {
-//     curr_phase->state = GHOST_STATE::CHASE;
-//     curr_phase->timer.set_duration(20.0);
-//     curr_phase->timer.start();
-//     curr_phase->num_scatter_to_chase_trans += 1;
-//   }
-  
-
-//   // We're in chase and the timer has run out
-//   if ((curr_phase->state == GHOST_STATE::CHASE ||
-//        curr_phase->state == GHOST_STATE::FRIGHTENED) &&
-//       !curr_phase->timer.running()) {
-//     curr_phase->state = GHOST_STATE::SCATTER;
-
-//     if (curr_phase->num_scatter_to_chase_trans > 2) {
-//       curr_phase->timer.set_duration(5.0);
-//     } else {
-//       curr_phase->timer.set_duration(7.0);
-//     }
-
-//     curr_phase->timer.start();
-//     curr_phase->num_chase_to_scatter_trans += 1;
-//   }
-
-//   // The timer is still running, advance it no matter the ghost state
-//   if (curr_phase->timer.running()) {
-//     curr_phase->timer.update(static_cast<double>(dt));
-//     return;
-//   }  
-// }
 
 void update_ghosts_phase(GhostPhase* phase, bool is_player_energized, float dt) {
   // Initialize first phase
@@ -296,7 +236,6 @@ void update_ghosts_phase(GhostPhase* phase, bool is_player_energized, float dt) 
   }
 }
 
-// NOTE: This seems like a good usecase for inheritance
 void update_ghost(TileMap& tile_map, Entity* entity, GHOST_TYPE ghost,
                   const GhostPhase& phase, const Entity& player, float dt,
                   const Vector2 blinky_tile_pos, const Vector2 clyde_tile_pos) {
@@ -337,6 +276,7 @@ void update_ghost(TileMap& tile_map, Entity* entity, GHOST_TYPE ghost,
 
   // NOTE: Refactor this
   if (entity->in_monster_pen) {
+    // NOTE: don't hardcode this position bellow
     if (Vector2Equals(entity->tile_pos, Vector2{ 13.0f, 14.0f })) {
       entity->in_monster_pen = false;
     } else {
