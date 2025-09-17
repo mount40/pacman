@@ -25,7 +25,7 @@ parse_level(const std::array<std::string, Rows>& level, std::uint16_t tile_size)
 static void check_and_resolve_entity_collisions(Entities* entities);
 
 static void draw_map_and_entities(const TileMap& tile_map, Entities* entities,
-                                  GHOST_STATE curr_ghost_state);
+                                  GHOST_STATE curr_ghost_state, float dt);
 
 static void draw_end_game_text(const char* msg,
                                std::uint32_t screen_width,
@@ -106,11 +106,13 @@ int main(void) {
 
   // Detects window close button or ESC key
   while (!WindowShouldClose()) {
+      const float dt = GetFrameTime();
+
     // Win condition
     if (entities.player.collected_dots >= tile_map.all_dots) {
       BeginDrawing();
       ClearBackground(RAYWHITE);
-      draw_map_and_entities(tile_map, &entities, ghosts_phase.state);
+      draw_map_and_entities(tile_map, &entities, ghosts_phase.state, dt);
       DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
                10, 10, 20, MAROON);
 
@@ -126,7 +128,7 @@ int main(void) {
       BeginDrawing();
       ClearBackground(RAYWHITE);
 
-      draw_map_and_entities(tile_map, &entities, ghosts_phase.state);
+      draw_map_and_entities(tile_map, &entities, ghosts_phase.state, dt);
       DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
                10, 10, 20, MAROON);
 
@@ -137,9 +139,7 @@ int main(void) {
       continue;
     }
 
-    // Gameplay loop
-    const float dt = GetFrameTime();
-    
+    // Gameplay loop    
     if (IsKeyPressed(KEY_UP)) {
       entities.player.next_dir = MOVEMENT_DIR::UP;
     }
@@ -173,7 +173,7 @@ int main(void) {
 
     ClearBackground(RAYWHITE);
 
-    draw_map_and_entities(tile_map, &entities, ghosts_phase.state);
+    draw_map_and_entities(tile_map, &entities, ghosts_phase.state, dt);
 
     DrawText(TextFormat("SCORE: %i", entities.player.collected_dots),
              10, 10, 20, MAROON);
@@ -294,7 +294,7 @@ static void check_and_resolve_entity_collisions(Entities* entities) {
 }
 
 static void draw_map_and_entities(const TileMap& tile_map, Entities* entities,
-                                  GHOST_STATE curr_ghost_state) {
+                                  GHOST_STATE curr_ghost_state, float dt) {
   const std::uint16_t tile_size = tile_map.tile_size;
   const std::uint16_t total_rows = tile_map.rows;
   const std::uint16_t total_cols = tile_map.cols;
@@ -336,7 +336,7 @@ static void draw_map_and_entities(const TileMap& tile_map, Entities* entities,
   }
 
   // We use WHITE tint when we don't want any tint
-  render_entity(tile_map, &entities->player, WHITE);
+  render_entity(tile_map, &entities->player, WHITE, dt);
 
   // Get a color with  30% opacity, for ghosts when dead
   Color dead_ghost_tint = WHITE;
@@ -357,7 +357,7 @@ static void draw_map_and_entities(const TileMap& tile_map, Entities* entities,
       tint = DARKBLUE;
     }
 
-    render_entity(tile_map, ghost, tint);
+    render_entity(tile_map, ghost, tint, dt);
   }
 }
 

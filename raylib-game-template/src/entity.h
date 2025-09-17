@@ -8,30 +8,35 @@
 struct EntityAnimationContext {
   Rectangle frame_rec;
   std::uint32_t current_frame;
-  std::uint32_t frames_counter;
-  std::uint32_t frames_speed;
+  float time_accum = 0.0f;
+  std::uint32_t frames_speed;        // frames per second
 };
 
 // Fat entity struct
-// NOTE: make player and ghost specific data fields into a union
 struct Entity {
-  Vector2 tile_pos;
-  Vector2 prev_tile_pos; 
-  MOVEMENT_DIR dir;
-  MOVEMENT_DIR next_dir;
-  float move_timer;
-  float tile_step_time;
-  Texture2D texture; // This holds only the handle + some metadata
-  Vector2 scale;
-  float rotation;
-  EntityAnimationContext anim_ctx;
-  bool is_dead;
-  // Player specific
-  std::uint16_t collected_dots;
-  bool is_energized;
-  Timer energized_timer;
-  // Ghost specific
-  bool in_monster_pen;
+  Vector2 tile_pos{};
+  Vector2 prev_tile_pos{};
+  MOVEMENT_DIR dir{MOVEMENT_DIR::STOPPED};
+  MOVEMENT_DIR next_dir{MOVEMENT_DIR::STOPPED};
+  float move_timer{0.0f};
+  float tile_step_time{0.0f};
+
+  // Rendering
+  Texture2D texture{};
+  Vector2 scale{1.5f, 1.5f};
+  float rotation{0.0f};
+  EntityAnimationContext anim_ctx{};
+
+  // Gameplay flags
+  bool is_dead{false};
+
+  // Player gameplay specific
+  std::uint16_t collected_dots{0};
+  bool is_energized{false};
+  Timer energized_timer{};
+
+  // Ghost gameplay specific
+  bool in_monster_pen{true};
   std::uint32_t last_seen_change_seq{0};
 };
 
@@ -44,13 +49,7 @@ inline Vector2 get_tile_pos_ahead_of_entity(const Entity& entity, int tiles) {
   return { entity.tile_pos.x + delta.x * tiles, entity.tile_pos.y + delta.y * tiles };
 }
 
-inline TILE_TYPE get_tile_ahead_of_entity(const TileMap& tile_map,
-                                          const Entity& entity) {
-  Vector2 delta = get_step_delta(entity.dir);
-  return tile_map.get(delta.x, delta.y);
-}
-
-void handle_entity_on_teleport_tile(Entity* entity, std::uint16_t num_tile_map_cols);
 void init_entity(Entity* player, const Vector2& tile_pos,
                  const char* texture_path, float movement_speed);
-void render_entity(const TileMap& tile_map, Entity* entity, Color tint);
+void render_entity(const TileMap& tile_map, Entity* entity, Color tint, float dt);
+void handle_entity_on_teleport_tile(Entity* entity, std::uint16_t num_tile_map_cols);
